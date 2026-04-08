@@ -10,7 +10,7 @@ import io.ktor.server.auth.jwt.*
 fun Application.configureSecurity() {
     install(Authentication) {
         jwt("auth-jwt") {
-            realm = environment.config.property("jwt.realm").getString()
+            realm = this@configureSecurity.environment.config.property("jwt.realm").getString()
             verifier(
                 JWT.require(Algorithm.HMAC256(JwtUtil.getSecret()))
                     .withIssuer(JwtUtil.getIssuer())
