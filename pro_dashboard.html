@@ -132,7 +132,7 @@ body{font-family:'Bricolage Grotesque',sans-serif;background:var(--paper);color:
 .qt:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-lll)}
 
 /* ── PLAN / SCHEDULE ── */
-.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;align-items:start}
 .plan-block{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(10,20,16,0.03)}
 .pb-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .pb-title{font-size:13px;font-weight:700;color:var(--ink)}
@@ -204,12 +204,51 @@ body{font-family:'Bricolage Grotesque',sans-serif;background:var(--paper);color:
 .tour-skip:hover{color:var(--ink)}
 .tour-next{font-family:'Bricolage Grotesque',sans-serif;font-size:12px;font-weight:600;padding:8px 20px;border-radius:8px;border:none;background:var(--ink);color:#fff;cursor:pointer;transition:all .2s}
 /* ── SCROLLBAR ── */
+
+/* Mail panel */
+.mail-panel{position:fixed;top:60px;right:0;bottom:0;width:380px;background:var(--white);border-left:1px solid var(--border);z-index:998;display:none;flex-direction:column;box-shadow:-8px 0 32px rgba(10,20,16,0.1)}
+.mail-panel.open{display:flex}
+.mail-header{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.mail-header-title{font-family:'Instrument Serif',serif;font-size:18px;font-style:italic;color:var(--ink)}
+.mail-close{width:30px;height:30px;border:none;background:var(--paper);border-radius:6px;cursor:pointer;font-size:16px;color:var(--ink-m)}
+.mail-msg{display:flex;gap:10px;padding:14px 20px;border-bottom:1px solid var(--fog);cursor:pointer;transition:background .15s}
+.mail-msg:hover{background:var(--paper)}
+.mail-msg.unread{background:var(--teal-lll)}
+.mail-msg-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.mail-msg-name{font-size:12px;font-weight:700;color:var(--ink)}
+.mail-msg-preview{font-size:11px;color:var(--ink-f);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}
+.mail-msg-time{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-f);margin-left:auto;flex-shrink:0}
+/* Edit plan overlay */
+.plan-edit-overlay{background:var(--white);border:1.5px solid var(--teal);border-radius:12px;padding:14px;margin-top:10px}
+.plan-edit-day{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--fog)}
+.plan-edit-day:last-child{border-bottom:none}
+.plan-edit-day-label{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-f);width:28px;flex-shrink:0}
+.plan-edit-input{flex:1;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:11px;font-family:'Bricolage Grotesque',sans-serif;color:var(--ink);outline:none}
+.plan-edit-input:focus{border-color:var(--teal)}
+/* Status badge editable */
+.status-edit-btn{font-size:10px;cursor:pointer;opacity:.6;margin-left:4px}
+.status-edit-btn:hover{opacity:1}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--fog);border-radius:10px}
 </style>
 </head>
-<body>
+<body><script>
+(function() {
+  const token = localStorage.getItem('nw_token');
+  if (!token) { window.location.href = '/index.html'; return; }
+  // Verify token with server
+  fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => { if (!r.ok) { localStorage.removeItem('nw_token'); localStorage.removeItem('nw_user'); window.location.href = '/index.html'; } })
+    .catch(() => {}); // offline: stay on page
+})();
+function logout() {
+  localStorage.removeItem('nw_token');
+  localStorage.removeItem('nw_user');
+  window.location.href = '/index.html?logout=1';
+}
+</script>
+
 
 
 <!-- ONBOARDING TOUR OVERLAY -->
@@ -247,9 +286,9 @@ body{font-family:'Bricolage Grotesque',sans-serif;background:var(--paper);color:
     <button class="switch-btn" onclick="startTour()" style="border-color:rgba(255,255,255,0.15);color:rgba(255,255,255,0.55);padding:8px 12px;min-width:unset" title="Guided tour">
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.4"/><text x="7" y="11" text-anchor="middle" font-size="9" fill="currentColor" font-family="JetBrains Mono,monospace">?</text></svg>
     </button>
-    <div class="tn-icon" style="position:relative">
+    <div class="tn-icon" id="mailIcon" onclick="openMailPanel()" style="position:relative;cursor:pointer">
       <svg width="20" height="16" viewBox="0 0 20 16" fill="none"><rect x="1" y="1" width="18" height="14" rx="2" stroke="rgba(255,255,255,0.85)" stroke-width="1.5"/><path d="M1 4l9 6 9-6" stroke="rgba(255,255,255,0.85)" stroke-width="1.5"/></svg>
-      <div style="width:7px;height:7px;border-radius:50%;background:#dc2626;position:absolute;top:4px;right:4px;border:1.5px solid var(--ink)"></div>
+      <div id="mailDot" style="width:7px;height:7px;border-radius:50%;background:#dc2626;position:absolute;top:4px;right:4px;border:1.5px solid var(--ink)"></div>
     </div>
     <div class="tn-avatar">
       <div class="tn-avatar-pic">DR</div>
@@ -267,50 +306,54 @@ body{font-family:'Bricolage Grotesque',sans-serif;background:var(--paper);color:
   </a>
 
   <div class="sn-section-label" style="margin-top:4px">My Clients</div>
+  <div style="padding:6px 16px 2px">
+    <input type="text" placeholder="Search clients..." oninput="filterClients(this.value)"
+      style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:11px;font-family:'Bricolage Grotesque',sans-serif;color:var(--ink);outline:none;background:var(--paper)">
+  </div>
 
-  <a class="sn-item" onclick="selectClient('rose', this)" href="#">
+  <a class="sn-item" onclick="selectClient('rose', this)" data-client="rose" href="#">
     <div class="sn-avatar" style="background:#2f8f7f">RC</div>
     <div style="flex:1">
       <div class="sn-name">Rose Campbell</div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--ink-f)">62kg · Active</div>
     </div>
-    <span class="sn-status warn">⚡ Low protein</span>
+    <span class="sn-status warn" onclick="cycleStatus('rose', this)">⚡ Low protein</span>
   </a>
 
-  <a class="sn-item" onclick="selectClient('james', this)" href="#">
+  <a class="sn-item" onclick="selectClient('james', this)" data-client="james" href="#">
     <div class="sn-avatar" style="background:#7aaad4">JT</div>
     <div style="flex:1">
       <div class="sn-name">James Tang</div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--ink-f)">78kg · Bulking</div>
     </div>
-    <span class="sn-status ok">✓ On track</span>
+    <span class="sn-status ok" onclick="cycleStatus('james', this)">✓ On track</span>
   </a>
 
-  <a class="sn-item" onclick="selectClient('sara', this)" href="#">
+  <a class="sn-item" onclick="selectClient('sara', this)" data-client="sara" href="#">
     <div class="sn-avatar" style="background:#e07b78">SL</div>
     <div style="flex:1">
       <div class="sn-name">Sara Lim</div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--ink-f)">55kg · Cut</div>
     </div>
-    <span class="sn-status urgent">! Missed 3 days</span>
+    <span class="sn-status urgent" onclick="cycleStatus('sara', this)">! Missed 3 days</span>
   </a>
 
-  <a class="sn-item" onclick="selectClient('mike', this)" href="#">
+  <a class="sn-item" onclick="selectClient('mike', this)" data-client="mike" href="#">
     <div class="sn-avatar" style="background:#b8621f">MW</div>
     <div style="flex:1">
       <div class="sn-name">Mike Walsh</div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--ink-f)">90kg · Maintain</div>
     </div>
-    <span class="sn-status ok">✓ On track</span>
+    <span class="sn-status ok" onclick="cycleStatus('mike', this)">✓ On track</span>
   </a>
 
-  <a class="sn-item" onclick="selectClient('priya', this)" href="#">
+  <a class="sn-item" onclick="selectClient('priya', this)" data-client="priya" href="#">
     <div class="sn-avatar" style="background:#7c3aed">PK</div>
     <div style="flex:1">
       <div class="sn-name">Priya Kapoor</div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--ink-f)">58kg · Lean gain</div>
     </div>
-    <span class="sn-status warn">⚡ Review due</span>
+    <span class="sn-status warn" onclick="cycleStatus('priya', this)">⚡ Review due</span>
   </a>
 </aside>
 
@@ -514,7 +557,7 @@ body{font-family:'Bricolage Grotesque',sans-serif;background:var(--paper);color:
         <div class="plan-block">
           <div class="pb-header">
             <div class="pb-title">🥗 Weekly Meal Plan</div>
-            <span class="pb-edit" onclick="alert('Edit mode — coming soon')">Edit Plan</span>
+            <span class="pb-edit" onclick="openEditPlan(this)">Edit Plan</span>
           </div>
           <div id="mealPlanRows"></div>
           <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--fog)">
@@ -525,12 +568,12 @@ body{font-family:'Bricolage Grotesque',sans-serif;background:var(--paper);color:
         <div class="plan-block">
           <div class="pb-header">
             <div class="pb-title">🏋️ Training Schedule</div>
-            <span class="pb-edit" onclick="alert('Edit mode — coming soon')">Edit Plan</span>
+            <span class="pb-edit" onclick="openEditPlan(this)">Edit Plan</span>
           </div>
           <div id="trainingPlanRows"></div>
           <div style="margin-top:14px;padding:12px;background:var(--teal-lll);border-radius:10px">
             <div style="font-size:12px;font-weight:600;color:var(--teal);margin-bottom:4px">📝 Pro Notes</div>
-            <div id="proNotes" style="font-size:12px;color:var(--ink-m);line-height:1.55"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:12px;font-weight:700;color:var(--ink)">📝 Pro Notes</div><span id="notesEditBtn" onclick="toggleNotesEdit()" style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--teal);cursor:pointer;padding:3px 8px;border:1px solid var(--teal-ll);border-radius:5px">Edit</span></div><div id="proNotes" style="font-size:12px;color:var(--ink-m);line-height:1.55"></div><textarea id="proNotesEdit" style="display:none;width:100%;padding:10px 12px;border:1.5px solid var(--teal);border-radius:8px;font-family:'Bricolage Grotesque',sans-serif;font-size:12px;color:var(--ink);resize:vertical;min-height:80px;outline:none;margin-top:6px"></textarea>
           </div>
         </div>
       </div>
@@ -542,7 +585,8 @@ body{font-family:'Bricolage Grotesque',sans-serif;background:var(--paper);color:
         <div>
           <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:12px">Upcoming Appointments</div>
           <div id="apptList"></div>
-          <button style="margin-top:10px;display:flex;align-items:center;gap:8px;padding:11px 20px;border:1.5px dashed var(--border);border-radius:12px;background:transparent;color:var(--ink-f);font-family:'Bricolage Grotesque',sans-serif;font-size:12px;font-weight:600;cursor:pointer;width:100%;justify-content:center;transition:all .2s" onmouseover="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--ink-f)'">+ Book New Appointment</button>
+          <button style="margin-top:10px;display:flex;align-items:center;gap:8px;padding:11px 20px;border:1.5px dashed var(--border);border-radius:12px;background:transparent;color:var(--ink-f);font-family:'Bricolage Grotesque',sans-serif;font-size:12px;font-weight:600;cursor:pointer;width:100%;justify-content:center;transition:all .2s" id="bookApptBtn" onclick="toggleApptForm()" onmouseover="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--ink-f)'">+ Book New Appointment</button>
+<div id="apptFormWrap" style="display:none;margin-top:12px;background:var(--paper);border-radius:12px;padding:16px;border:1px solid var(--border)"></div>
         </div>
         <div>
           <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:12px">Session History</div>
@@ -967,6 +1011,10 @@ function switchTab(id, el) {
     renderCalorieTrend(c);
     renderExerciseChart(c);
   }
+  if (id === 'chat' && currentClient) {
+    if (mailMessages[currentClient]) mailMessages[currentClient].forEach(m => m.unread = false);
+    updateMailDot();
+  }
 }
 
 function sendMessage() {
@@ -1074,6 +1122,327 @@ function tourNext() {
 function endTour() {
   document.getElementById('tourOverlay').classList.remove('active');
 }
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function proToast(msg, color) {
+  const t = document.getElementById('proToast');
+  t.textContent = msg; t.style.background = color || 'var(--ink)';
+  t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(t._t); t._t = setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(12px)'; }, 2400);
+}
+
+// ── Mail Panel ────────────────────────────────────────────────────────────────
+const mailMessages = {
+  rose:  [{ text: 'Hi! Quick question about my protein targets...', time: '2h ago', unread: true }],
+  james: [{ text: 'Completed all workouts this week! Feeling strong 💪', time: '5h ago', unread: false }],
+  sara:  [{ text: 'Sorry I missed my sessions, been really busy at work', time: '1d ago', unread: true }],
+  mike:  [{ text: 'Just checking in — all good this week!', time: '2d ago', unread: false }],
+  priya: [{ text: 'Completed all my workouts this week! Looking forward to review 😊', time: '3d ago', unread: true }],
+};
+const clientColors = { rose:'#2f8f7f', james:'#7aaad4', sara:'#e07b78', mike:'#b8621f', priya:'#7c3aed' };
+const clientNames = { rose:'Rose C.', james:'James T.', sara:'Sara L.', mike:'Mike W.', priya:'Priya K.' };
+
+function openMailPanel() {
+  const list = document.getElementById('mailList');
+  list.innerHTML = Object.entries(mailMessages).map(([id, msgs]) => {
+    const m = msgs[msgs.length - 1];
+    return `<div class="mail-msg ${m.unread ? 'unread' : ''}" onclick="selectClientFromMail('${id}')">
+      <div class="mail-msg-avatar" style="background:${clientColors[id]}">${clientNames[id].split(' ').map(w=>w[0]).join('')}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="mail-msg-name">${clientNames[id]}${m.unread ? ' <span style="width:6px;height:6px;border-radius:50%;background:#dc2626;display:inline-block;margin-left:4px"></span>' : ''}</div>
+          <div class="mail-msg-time">${m.time}</div>
+        </div>
+        <div class="mail-msg-preview">${m.text}</div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('mailPanel').classList.add('open');
+  document.getElementById('mailDim').style.display = 'block';
+  updateMailDot();
+}
+
+function closeMailPanel() {
+  document.getElementById('mailPanel').classList.remove('open');
+  document.getElementById('mailDim').style.display = 'none';
+}
+
+function selectClientFromMail(id) {
+  closeMailPanel();
+  if (mailMessages[id]) mailMessages[id].forEach(m => m.unread = false);
+  updateMailDot();
+  const sideItems = document.querySelectorAll('.sn-item');
+  const order = ['overview','rose','james','sara','mike','priya'];
+  const idx = order.indexOf(id);
+  if (idx >= 0) {
+    selectClient(id, sideItems[idx]);
+    // Jump to chat tab
+    setTimeout(() => {
+      const tabs = document.querySelectorAll('.tab-item');
+      if (tabs[1]) switchTab('chat', tabs[1]);
+    }, 100);
+  }
+}
+
+function updateMailDot() {
+  const hasUnread = Object.values(mailMessages).some(msgs => msgs.some(m => m.unread));
+  const dot = document.getElementById('mailDot');
+  if (dot) dot.style.display = hasUnread ? 'block' : 'none';
+}
+
+// mail unread cleared in switchTab above
+
+// ── Appointment ───────────────────────────────────────────────────────────────
+function openApptModal() {
+  const modal = document.getElementById('apptModal');
+  modal.style.display = 'flex';
+  // Set default date to tomorrow
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  document.getElementById('apptDate').value = tomorrow.toISOString().split('T')[0];
+}
+function closeApptModal() {
+  document.getElementById('apptModal').style.display = 'none';
+}
+function confirmAppt() {
+  if (!currentClient) { closeApptModal(); return; }
+  const date = document.getElementById('apptDate').value;
+  const time = document.getElementById('apptTime').value;
+  const type = document.getElementById('apptType').value;
+  if (!date || !time) { proToast('Please fill in date and time', '#dc2626'); return; }
+  const d = new Date(date);
+  const dateStr = d.getDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+  clients[currentClient].appointments.unshift({ time, date: dateStr, type, status: 'pending' });
+  closeApptModal();
+  renderAppointments(clients[currentClient]);
+  proToast('✓ Appointment booked', '#1e6b5e');
+}
+
+// Override book button to open modal
+document.addEventListener('DOMContentLoaded', () => {
+  const bookBtn = document.getElementById('bookApptBtn');
+  if (bookBtn) bookBtn.onclick = openApptModal;
+  updateMailDot();
+  // Set today's date in appointment date field
+  const apptDate = document.getElementById('apptDate');
+  if (apptDate) {
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    apptDate.value = tomorrow.toISOString().split('T')[0];
+  }
+});
+
+// ── Appointment status toggle ─────────────────────────────────────────────────
+function toggleApptStatus(idx) {
+  if (!currentClient) return;
+  const appts = clients[currentClient].appointments;
+  appts[idx].status = appts[idx].status === 'confirmed' ? 'pending' : 'confirmed';
+  renderAppointments(clients[currentClient]);
+  proToast(appts[idx].status === 'confirmed' ? '✓ Confirmed' : 'Marked as pending');
+}
+
+// Override renderAppointments to add toggle + delete
+function renderAppointments(c) {
+  document.getElementById('apptList').innerHTML = c.appointments.map((a, i) =>
+    `<div class="appt-card" onclick="toggleApptStatus(${i})">
+      <div class="appt-time"><div class="at-hour">${a.time}</div><div class="at-label">${a.date}</div></div>
+      <div class="appt-info"><div class="ai-name">${c.name}</div><div class="ai-type">${a.type}</div></div>
+      <span class="appt-status ${a.status}">${a.status === 'confirmed' ? '✓ Confirmed' : '⏳ Pending'}</span>
+      <span onclick="event.stopPropagation();deleteAppt(${i})" style="font-size:11px;color:var(--ink-f);cursor:pointer;margin-left:6px;opacity:.5" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.5">✕</span>
+    </div>`).join('');
+
+  document.getElementById('sessionHistory').innerHTML = c.history.map(h =>
+    `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--fog)">
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--teal-ll);flex-shrink:0;margin-top:4px"></div>
+      <div style="font-size:12px;color:var(--ink-m)">${h}</div>
+    </div>`).join('');
+}
+
+function deleteAppt(idx) {
+  if (!currentClient) return;
+  clients[currentClient].appointments.splice(idx, 1);
+  renderAppointments(clients[currentClient]);
+  proToast('Appointment removed');
+}
+
+// ── Edit Meal Plan ────────────────────────────────────────────────────────────
+let editingPlanType = null; // 'meal' or 'training'
+
+function openEditPlan(btn) {
+  const card = btn.closest('.plan-block');
+  const isMeal = card.querySelector('#mealPlanRows') !== null;
+  editingPlanType = isMeal ? 'meal' : 'training';
+  const c = clients[currentClient];
+  const items = isMeal ? c.meals : c.training;
+  const days = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
+
+  // Remove existing edit overlay if any
+  const existing = card.querySelector('.plan-edit-overlay');
+  if (existing) { existing.remove(); btn.textContent = 'Edit Plan'; return; }
+
+  btn.textContent = 'Done ✓';
+  const overlay = document.createElement('div');
+  overlay.className = 'plan-edit-overlay';
+  overlay.innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:var(--ink);margin-bottom:8px">Edit ${isMeal ? 'Meal' : 'Training'} Plan</div>
+    ${days.map((d, i) => `
+      <div class="plan-edit-day">
+        <span class="plan-edit-day-label">${d}</span>
+        <input class="plan-edit-input" data-idx="${i}" value="${items[i]}" placeholder="${isMeal ? 'e.g. Grilled chicken & rice' : 'e.g. Strength: Upper'}">
+      </div>`).join('')}
+    <button onclick="savePlanEdit(this)" style="margin-top:10px;padding:8px 20px;background:var(--ink);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;width:100%">Save Plan</button>`;
+  card.appendChild(overlay);
+}
+
+function savePlanEdit(btn) {
+  const overlay = btn.closest('.plan-edit-overlay');
+  const card = overlay.parentElement;
+  const inputs = overlay.querySelectorAll('.plan-edit-input');
+  const c = clients[currentClient];
+  inputs.forEach(inp => {
+    const idx = parseInt(inp.dataset.idx);
+    if (editingPlanType === 'meal') c.meals[idx] = inp.value;
+    else c.training[idx] = inp.value;
+  });
+  overlay.remove();
+  const editBtn = card.querySelector('.pb-edit');
+  if (editBtn) editBtn.textContent = 'Edit Plan';
+  renderPlan(c);
+  proToast('✓ Plan saved', '#1e6b5e');
+}
+
+// ── Pro Notes Edit ────────────────────────────────────────────────────────────
+function toggleNotesEdit() {
+  const notesDiv = document.getElementById('proNotes');
+  const textarea = document.getElementById('proNotesEdit');
+  const btn = document.getElementById('notesEditBtn');
+  if (textarea.style.display === 'none') {
+    textarea.value = clients[currentClient].notes;
+    textarea.style.display = 'block';
+    notesDiv.style.display = 'none';
+    btn.textContent = 'Save';
+    btn.style.background = 'var(--teal)'; btn.style.color = '#fff'; btn.style.borderColor = 'var(--teal)';
+  } else {
+    clients[currentClient].notes = textarea.value;
+    notesDiv.textContent = textarea.value;
+    textarea.style.display = 'none';
+    notesDiv.style.display = 'block';
+    btn.textContent = 'Edit';
+    btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = '';
+    proToast('✓ Notes saved', '#1e6b5e');
+  }
+}
+
+// ── Client status badge edit ──────────────────────────────────────────────────
+const statusOptions = ['ok', 'warn', 'urgent'];
+const statusLabels = { ok: '✓ On track', warn: '⚡ Review due', urgent: '! Attention' };
+
+function cycleStatus(id, el) {
+  event.stopPropagation();
+  const current = el.className.replace('sn-status ', '');
+  const nextIdx = (statusOptions.indexOf(current) + 1) % statusOptions.length;
+  const next = statusOptions[nextIdx];
+  el.className = 'sn-status ' + next;
+  el.textContent = statusLabels[next];
+  proToast('Status updated → ' + statusLabels[next]);
+}
+
+// ── Search/filter clients ─────────────────────────────────────────────────────
+function filterClients(q) {
+  const term = q.toLowerCase();
+  document.querySelectorAll('.sn-item[data-client]').forEach(item => {
+    const name = item.querySelector('.sn-name')?.textContent.toLowerCase() || '';
+    item.style.display = name.includes(term) ? '' : 'none';
+  });
+}
+
+// ── Health score detail expand ────────────────────────────────────────────────
+const scoreDetails = {
+  nutrition: 'Based on macro targets hit over the past 7 days. Focus on protein and fibre.',
+  consistency: 'Number of days with complete food logging in the past 14 days.',
+  hydration: 'Estimated from logged drinks. Target: 8 glasses/day.',
+  exercise: 'Workouts completed vs weekly target. Includes all activity types.'
+};
+
+function toggleScoreDetail(key, el) {
+  const existing = el.nextElementSibling;
+  if (existing && existing.classList.contains('score-detail')) {
+    existing.remove(); return;
+  }
+  const detail = document.createElement('div');
+  detail.className = 'score-detail';
+  detail.style.cssText = 'font-size:11px;color:var(--ink-f);padding:4px 0 8px 0;line-height:1.5;border-bottom:1px solid var(--fog)';
+  detail.textContent = scoreDetails[key] || '';
+  el.insertAdjacentElement('afterend', detail);
+}
+
+// ── Override renderScoreRing to add clickable rows ────────────────────────────
+function renderScoreRing(c) {
+  const total = Math.round(Object.values(c.scores).reduce((a, b) => a + b, 0) / Object.keys(c.scores).length);
+  const color = total >= 80 ? '#1e6b5e' : total >= 60 ? '#b8621f' : '#dc2626';
+  const pct = total / 100;
+  const circ = 2 * Math.PI * 44;
+  const svg = document.getElementById('scoreRing');
+  svg.innerHTML = `
+    <circle cx="60" cy="60" r="44" fill="none" stroke="var(--fog)" stroke-width="10"/>
+    <circle cx="60" cy="60" r="44" fill="none" stroke="${color}" stroke-width="10" stroke-dasharray="${circ * pct} ${circ}" stroke-linecap="round" transform="rotate(-90 60 60)"/>
+    <text x="60" y="57" text-anchor="middle" font-size="22" font-weight="700" fill="${color}" font-family="Bricolage Grotesque,sans-serif">${total}</text>
+    <text x="60" y="71" text-anchor="middle" font-size="9" fill="var(--ink-f)" font-family="JetBrains Mono,monospace">/100</text>`;
+
+  const labels = { nutrition: 'Nutrition Quality', consistency: 'Log Consistency', hydration: 'Hydration', exercise: 'Exercise' };
+  const barColors = { nutrition: '#1e6b5e', consistency: '#7aaad4', hydration: '#d4956a', exercise: '#e07b78' };
+  document.getElementById('scoreLabels').innerHTML = Object.entries(c.scores).map(([k, v]) =>
+    `<div class="sl-row" style="cursor:pointer" onclick="toggleScoreDetail('${k}', this)">
+      <span class="sl-name">${labels[k]}</span>
+      <div class="sl-bar-wrap"><div class="sl-bar" style="width:${v}%;background:${barColors[k]}"></div></div>
+      <span class="sl-score">${v}</span>
+      <span style="font-size:9px;color:var(--ink-f);margin-left:6px">▾</span>
+    </div>`).join('');
+}
+
 </script>
+
+<!-- Mail Panel -->
+<div class="mail-panel" id="mailPanel">
+  <div class="mail-header">
+    <div class="mail-header-title">Messages</div>
+    <button class="mail-close" onclick="closeMailPanel()">✕</button>
+  </div>
+  <div style="flex:1;overflow-y:auto" id="mailList"></div>
+</div>
+<div id="mailDim" onclick="closeMailPanel()" style="display:none;position:fixed;inset:0;z-index:997"></div>
+
+<!-- Appointment Modal -->
+<div id="apptModal" style="display:none;position:fixed;inset:0;background:rgba(10,20,16,0.4);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:var(--white);border-radius:18px;padding:28px;width:420px;box-shadow:0 24px 60px rgba(10,20,16,0.2)">
+    <div style="font-family:'Instrument Serif',serif;font-size:20px;font-style:italic;color:var(--ink);margin-bottom:20px">Book Appointment</div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-f);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Date</div>
+        <input type="date" id="apptDate" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-family:'Bricolage Grotesque',sans-serif;font-size:13px;color:var(--ink);outline:none">
+      </div>
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-f);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Time</div>
+        <input type="time" id="apptTime" value="09:00" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-family:'Bricolage Grotesque',sans-serif;font-size:13px;color:var(--ink);outline:none">
+      </div>
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-f);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Type</div>
+        <select id="apptType" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-family:'Bricolage Grotesque',sans-serif;font-size:13px;color:var(--ink);outline:none;background:var(--white)">
+          <option>Monthly Check-in</option>
+          <option>Plan Review</option>
+          <option>Initial Assessment</option>
+          <option>Emergency Consultation</option>
+          <option>Progress Review</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:22px">
+      <button onclick="closeApptModal()" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--white);font-family:'Bricolage Grotesque',sans-serif;font-size:13px;cursor:pointer;color:var(--ink-m)">Cancel</button>
+      <button onclick="confirmAppt()" style="flex:2;padding:10px;border:none;border-radius:8px;background:var(--ink);color:#fff;font-family:'Bricolage Grotesque',sans-serif;font-size:13px;font-weight:600;cursor:pointer">Confirm Appointment</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="proToast" style="position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--ink);color:#fff;padding:10px 22px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;font-family:'Bricolage Grotesque',sans-serif"></div>
+
 </body>
 </html>

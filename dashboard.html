@@ -173,8 +173,23 @@ body{font-family:'Bricolage Grotesque',sans-serif;background:var(--paper);color:
 .pc-leg-dot{width:6px;height:6px;border-radius:50%}
 </style>
 </head>
-<body>
-<nav class="top-nav"><div class="top-nav-left"><a href="#" class="tn-logo"><div class="tn-logo-mark">🌿</div><span class="tn-logo-text">NourishWell</span></a></div><div class="top-nav-right"><a href="#" class="tn-link">Q&A</a><div class="tn-icon">📩</div><div class="tn-avatar-wrap"><div class="tn-avatar" onclick="toggleAvatarMenu(event)"><div class="tn-avatar-pic">RC</div><span class="tn-avatar-name">Rose C.</span></div><div class="tn-dropdown" id="avatarMenu"><a href="#" onclick="showSettingsPage('personal');return false">Personal Details</a><a href="#" onclick="showSettingsPage('preferences');return false">Preferences</a><a href="#" class="logout">Log Out</a></div></div></div></nav>
+<body><script>
+(function() {
+  const token = localStorage.getItem('nw_token');
+  if (!token) { window.location.href = '/index.html'; return; }
+  // Verify token with server
+  fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => { if (!r.ok) { localStorage.removeItem('nw_token'); localStorage.removeItem('nw_user'); window.location.href = '/index.html'; } })
+    .catch(() => {}); // offline: stay on page
+})();
+function logout() {
+  localStorage.removeItem('nw_token');
+  localStorage.removeItem('nw_user');
+  window.location.href = '/index.html?logout=1';
+}
+</script>
+
+<nav class="top-nav"><div class="top-nav-left"><a href="#" class="tn-logo"><div class="tn-logo-mark">🌿</div><span class="tn-logo-text">NourishWell</span></a></div><div class="top-nav-right"><a href="#" class="tn-link">Q&A</a><div class="tn-icon">📩</div><div class="tn-avatar-wrap"><div class="tn-avatar" onclick="toggleAvatarMenu(event)"><div class="tn-avatar-pic">RC</div><span class="tn-avatar-name">Rose C.</span></div><div class="tn-dropdown" id="avatarMenu"><a href="#" onclick="showSettingsPage('personal');return false">Personal Details</a><a href="#" onclick="showSettingsPage('preferences');return false">Preferences</a><a href="#" class="logout" onclick="logout();return false">Log Out</a></div></div></div></nav>
 
 <aside class="side-nav">
 <a class="sn-item active" onclick="switchPage('record',this)" href="#"><span class="sn-icon">📋</span> <span class="sn-text">Record Today</span></a>

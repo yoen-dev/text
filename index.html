@@ -810,6 +810,24 @@ body.show-auth #page-auth { display: block; }
 </style>
 </head>
 <body>
+<script>
+// Auto-redirect if already logged in
+(function() {
+  const token = localStorage.getItem('nw_token');
+  const user = localStorage.getItem('nw_user');
+  if (token && user) {
+    try {
+      const u = JSON.parse(user);
+      const dest = u.role === 'professional' ? '/pro_dashboard.html' : '/dashboard.html';
+      // Only redirect if not on auth page
+      if (!window.location.search.includes('logout')) {
+        window.location.href = dest;
+      }
+    } catch(e) {}
+  }
+})();
+</script>
+
 
 <div id="page-landing">
 <!-- Custom cursor -->
@@ -1229,7 +1247,7 @@ function showLanding() {
    *              Shows loading state, then displays success overlay.
    *              验证邮箱格式和密码是否填写。显示加载状态，然后显示成功界面。
    */
-  function handleLogin() {
+  async function handleLogin() {
     const email = document.getElementById('login-email').value.trim();
     const pw = document.getElementById('login-password').value;
     let ok = true;
@@ -1239,11 +1257,33 @@ function showLanding() {
     if (!ok) return;
     const btn = document.getElementById('login-btn');
     btn.textContent = 'Signing in…'; btn.classList.add('loading');
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pw })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        btn.textContent = 'Sign in →'; btn.classList.remove('loading');
+        showErr('login-email-err', true);
+        document.getElementById('login-email-err').textContent = data.error || 'Incorrect email or password';
+        setErr('login-email', true); setErr('login-password', true);
+        return;
+      }
+      // Save token and user info
+      localStorage.setItem('nw_token', data.token);
+      localStorage.setItem('nw_user', JSON.stringify(data.user));
+      window._redirectTo = data.redirectTo;
       btn.textContent = 'Sign in →'; btn.classList.remove('loading');
       document.getElementById('login-form-wrap').style.display = 'none';
       document.getElementById('login-success').classList.add('show');
-    }, 1400);
+    } catch (err) {
+      btn.textContent = 'Sign in →'; btn.classList.remove('loading');
+      showErr('login-email-err', true);
+      document.getElementById('login-email-err').textContent = 'Server error — is the server running?';
+      setErr('login-email', true);
+    }
   }
 
   /**
@@ -1255,7 +1295,7 @@ function showLanding() {
    *              以及专业执照号（如果选择了专业人士角色）。
    *              显示加载状态，然后显示成功界面。
    */
-  function handleRegister() {
+  async function handleRegister() {
     const first = document.getElementById('reg-first').value.trim();
     const last  = document.getElementById('reg-last').value.trim();
     const email = document.getElementById('reg-email').value.trim();
@@ -1272,11 +1312,33 @@ function showLanding() {
     if (!ok) return;
     const btn = document.getElementById('register-btn');
     document.getElementById('reg-btn-text').textContent = 'Creating account…'; btn.classList.add('loading');
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName: first, lastName: last, email, password: pw,
+          role: currentRole, licenceNumber: lic || null })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        document.getElementById('reg-btn-text').textContent = 'Create account →'; btn.classList.remove('loading');
+        showErr('reg-email-err', true);
+        document.getElementById('reg-email-err').textContent = data.error || 'Registration failed';
+        setErr('reg-email', true);
+        return;
+      }
+      localStorage.setItem('nw_token', data.token);
+      localStorage.setItem('nw_user', JSON.stringify(data.user));
+      window._redirectTo = data.redirectTo;
       document.getElementById('reg-btn-text').textContent = 'Create account →'; btn.classList.remove('loading');
       document.getElementById('register-form-wrap').style.display = 'none';
       document.getElementById('register-success').classList.add('show');
-    }, 1600);
+    } catch (err) {
+      document.getElementById('reg-btn-text').textContent = 'Create account →'; btn.classList.remove('loading');
+      showErr('reg-email-err', true);
+      document.getElementById('reg-email-err').textContent = 'Server error — is the server running?';
+      setErr('reg-email', true);
+    }
   }
 
   /**
@@ -1284,7 +1346,7 @@ function showLanding() {
    * @description Placeholder function. Currently returns to landing page.
    *              占位函数。当前返回着陆页。
    */
-  function goToDashboard() { alert('Would navigate to /dashboard'); }
+  function goToDashboard() { window.location.href = window._redirectTo || '/dashboard.html'; }
 
   /**
    * Keyboard event listener / 键盘事件监听
@@ -1303,7 +1365,7 @@ function showLanding() {
  * @description In demo mode, returns to landing page instead of navigating to dashboard.
  *              演示模式下，返回着陆页而非跳转到仪表盘。
  */
-function goToDashboard() { showLanding(); }
+function goToDashboard() { window.location.href = window._redirectTo || '/dashboard.html'; }
 </script>
 </body>
 </html>
